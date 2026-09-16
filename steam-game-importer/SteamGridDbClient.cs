@@ -5,6 +5,7 @@ namespace SteamGameImporter;
 
 internal sealed record SteamGridGame(int Id, string Name);
 internal sealed record SteamGridArtwork(string Url, string ThumbUrl);
+internal enum ArtworkKind { Cover, Hero, Logo }
 
 internal sealed class SteamGridDbClient(string apiKey)
 {
@@ -23,13 +24,23 @@ internal sealed class SteamGridDbClient(string apiKey)
     }
 
     public async Task<List<SteamGridArtwork>> GetPortraitsAsync(int gameId, CancellationToken token)
+        => await GetArtworkAsync(gameId, ArtworkKind.Cover, token);
+
+    public async Task<List<SteamGridArtwork>> GetArtworkAsync(int gameId, ArtworkKind kind, CancellationToken token)
     {
-        using var response = await _http.GetAsync($"https://www.steamgriddb.com/api/v2/grids/game/{gameId}?dimensions=600x900&types=static", token);
+        string endpoint = kind switch
+        {
+            ArtworkKind.Cover => $"grids/game/{gameId}?dimensions=600x900&types=static",
+            ArtworkKind.Hero => $"heroes/game/{gameId}?types=static",
+            ArtworkKind.Logo => $"logos/game/{gameId}?types=static",
+            _ => throw new ArgumentOutOfRangeException(nameof(kind))
+        };
+        using var response = await _http.GetAsync("https://www.steamgriddb.com/api/v2/" + endpoint, token);
         if (!response.IsSuccessStatusCode) throw new HttpRequestException($"SteamGridDB grid hiba: {(int)response.StatusCode} {response.ReasonPhrase}");
         using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(token));
         return document.RootElement.GetProperty("data").EnumerateArray()
             .Select(x => new SteamGridArtwork(x.GetProperty("url").GetString() ?? "", x.TryGetProperty("thumb", out var thumb) ? thumb.GetString() ?? "" : x.GetProperty("url").GetString() ?? ""))
-            .Where(x => !string.IsNullOrWhiteSpace(x.Url)).Take(40).ToList();
+            .Where(x => !string.IsNullOrWhiteSpace(x.Url)).Take(60).ToList();
     }
 
     public async Task<byte[]> DownloadPreviewAsync(string url, CancellationToken token) => await _imageHttp.GetByteArrayAsync(url, token);
