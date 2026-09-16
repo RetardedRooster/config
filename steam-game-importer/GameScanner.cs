@@ -45,7 +45,10 @@ internal static class GameScanner
     {
         string n = Path.GetFileName(path);
         return n.Equals("Windows", StringComparison.OrdinalIgnoreCase) || n.Equals("ProgramData", StringComparison.OrdinalIgnoreCase)
-            || n.Equals("node_modules", StringComparison.OrdinalIgnoreCase) || n.StartsWith("$", StringComparison.OrdinalIgnoreCase);
+            || n.Equals("node_modules", StringComparison.OrdinalIgnoreCase) || n.StartsWith("$", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Steam", StringComparison.OrdinalIgnoreCase) || n.Equals("SteamLibrary", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"{Path.DirectorySeparatorChar}steamapps{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith($"{Path.DirectorySeparatorChar}steamapps", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string InferName(string exe)
