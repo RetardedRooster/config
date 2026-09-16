@@ -15,7 +15,10 @@ internal sealed class MainForm : Form
     public MainForm()
     {
         Text = "Steam Game Importer"; Width = 1100; Height = 680; MinimumSize = new Size(850, 500); StartPosition = FormStartPosition.CenterScreen;
-        BuildGrid(); BuildLayout(); Load += (_, _) => InitializeSteam();
+        BuildGrid(); BuildLayout();
+        Load += (_, _) => { _apiKey.Text = CredentialStore.LoadApiKey(); InitializeSteam(); };
+        FormClosing += (_, _) => CredentialStore.SaveApiKey(_apiKey.Text);
+        _apiKey.Leave += (_, _) => CredentialStore.SaveApiKey(_apiKey.Text);
     }
 
     private void BuildGrid()
@@ -25,16 +28,18 @@ internal sealed class MainForm : Form
         _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(GameEntry.Executable), HeaderText = "Indítófájl", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(GameEntry.StartDirectory), HeaderText = "Kezdőmappa", Width = 260 });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(GameEntry.LaunchOptions), HeaderText = "Indítási opciók", Width = 150 });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(GameEntry.ArtworkStatus), HeaderText = "Artwork", Width = 120, ReadOnly = true });
     }
 
     private void BuildLayout()
     {
         var choose = Button("Tallózás…", (_, _) => ChooseScanFolder()); var scan = Button("Keresés", async (_, _) => await Scan());
         var addManual = Button("Kézi hozzáadás", (_, _) => AddManual()); var remove = Button("Kijelölt sor törlése", (_, _) => RemoveRows());
+        var artwork = Button("Artwork kiválasztása", async (_, _) => await ChooseArtworkForCurrentRow());
         var import = Button("Hozzáadás a Steamhez", async (_, _) => await Import());
         var stop = Button("Leállítás", (_, _) => _cts?.Cancel());
-        var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 45, Padding = new Padding(7), WrapContents = false };
-        top.Controls.AddRange([_scanPath, choose, scan, stop, addManual, remove]);
+        var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 78, Padding = new Padding(7), WrapContents = true };
+        top.Controls.AddRange([_scanPath, choose, scan, stop, addManual, remove, artwork]);
         var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 52, Padding = new Padding(7), WrapContents = false };
         bottom.Controls.AddRange([new Label { Text = "Steam felhasználó:", AutoSize = true, Margin = new Padding(3, 9, 3, 3) }, _steamUser, _apiKey, import]);
         var status = new StatusStrip(); status.Items.Add(_status);
@@ -92,6 +97,18 @@ internal sealed class MainForm : Form
         if (_steamPath is null || _steamUser.SelectedItem is not string user) { MessageBox.Show(this, "Nem található Steam-felhasználó.", "Hiba"); return; }
         var selected = (_grid.DataSource as List<GameEntry>)?.Where(x => x.Selected).ToList() ?? [];
         if (selected.Count == 0) { MessageBox.Show(this, "Nincs kijelölt játék."); return; }
+        CredentialStore.SaveApiKey(_apiKey.Text);
+        if (!string.IsNullOrWhiteSpace(_apiKey.Text))
+        {
+            var client = new SteamGridDbClient(_apiKey.Text.Trim());
+            foreach (var game in selected)
+            {
+                using var picker = new ArtworkPickerForm(client, game.Name, game.ArtworkUrl);
+                if (picker.ShowDialog(this) != DialogResult.OK) { _status.Text = "Importálás megszakítva az artwork-választásnál."; return; }
+                game.ArtworkUrl = picker.SelectedArtworkUrl;
+            }
+            _grid.Refresh();
+        }
         if (Process.GetProcessesByName("steam").Length > 0)
         {
             MessageBox.Show(this,
@@ -144,8 +161,8 @@ internal sealed class MainForm : Form
             _status.Text = "Borítókép: " + game.Name;
             try
             {
-                string? url = await client.FindGridUrlAsync(game.Name, CancellationToken.None);
-                if (url is null) { errors.Add($"{game.Name}: nincs 600x900-as statikus borító."); continue; }
+                string? url = game.ArtworkUrl;
+                if (url is null) { errors.Add($"{game.Name}: az artwork ki lett hagyva."); continue; }
                 uint appId = ShortcutVdf.ComputeAppId(Quote(game.Executable), game.Name);
                 await client.DownloadGridAsync(url, Path.Combine(grid, appId + "p"), CancellationToken.None);
                 downloaded++;
@@ -153,6 +170,17 @@ internal sealed class MainForm : Form
             catch (Exception ex) { errors.Add($"{game.Name}: {ex.Message}"); }
         }
         return (downloaded, errors);
+    }
+
+    private async Task ChooseArtworkForCurrentRow()
+    {
+        _grid.EndEdit();
+        if (_grid.CurrentRow?.DataBoundItem is not GameEntry game) { MessageBox.Show(this, "Előbb jelölj ki egy játék-sort."); return; }
+        if (string.IsNullOrWhiteSpace(_apiKey.Text)) { MessageBox.Show(this, "Előbb add meg a SteamGridDB API-kulcsot.", "API-kulcs szükséges"); return; }
+        CredentialStore.SaveApiKey(_apiKey.Text);
+        using var picker = new ArtworkPickerForm(new SteamGridDbClient(_apiKey.Text.Trim()), game.Name, game.ArtworkUrl);
+        if (picker.ShowDialog(this) == DialogResult.OK) { game.ArtworkUrl = picker.SelectedArtworkUrl; _grid.Refresh(); }
+        await Task.CompletedTask;
     }
 
     private static string Quote(string s) => "\"" + s.Trim().Trim('"') + "\"";
