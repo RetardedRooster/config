@@ -101,10 +101,7 @@ internal sealed class MainForm : Form
         if (!string.IsNullOrWhiteSpace(_apiKey.Text))
         {
             var client = new SteamGridDbClient(_apiKey.Text.Trim());
-            foreach (var game in selected)
-            {
-                if (!ChooseArtworkSet(client, game)) { _status.Text = "Importálás megszakítva az artwork-választásnál."; return; }
-            }
+            await AutoSelectArtwork(client, selected);
             _grid.Refresh();
         }
         if (Process.GetProcessesByName("steam").Length > 0)
@@ -123,9 +120,13 @@ internal sealed class MainForm : Form
             foreach (var game in selected)
             {
                 string exe = Quote(game.Executable), start = Quote(game.StartDirectory);
-                bool duplicate = shortcuts.Any(x => Normalize(x.Exe) == Normalize(exe) || (x.AppName.Equals(game.Name, StringComparison.OrdinalIgnoreCase) && Normalize(x.StartDir) == Normalize(start)));
-                if (duplicate) { skipped++; continue; }
-                shortcuts.Add(new SteamShortcut { AppName = game.Name.Trim(), Exe = exe, StartDir = start, LaunchOptions = game.LaunchOptions.Trim() }); added++;
+                var duplicate = shortcuts.FirstOrDefault(x => Normalize(x.Exe) == Normalize(exe) || (x.AppName.Equals(game.Name, StringComparison.OrdinalIgnoreCase) && Normalize(x.StartDir) == Normalize(start)));
+                if (duplicate is not null)
+                {
+                    if (!duplicate.Tags.Contains("Telepített", StringComparer.OrdinalIgnoreCase)) duplicate.Tags.Add("Telepített");
+                    skipped++; continue;
+                }
+                shortcuts.Add(new SteamShortcut { AppName = game.Name.Trim(), Exe = exe, StartDir = start, LaunchOptions = game.LaunchOptions.Trim(), Tags = ["Telepített"] }); added++;
             }
             ShortcutVdf.Write(vdf, shortcuts);
             var verified = ShortcutVdf.Read(vdf);
@@ -204,7 +205,26 @@ internal sealed class MainForm : Form
             selected[i] = picker.SelectedArtworkUrl;
         }
         game.ArtworkUrl = selected[0]; game.HeroUrl = selected[1]; game.LogoUrl = selected[2];
+        game.ArtworkManuallyConfigured = true;
         return true;
+    }
+
+    private async Task AutoSelectArtwork(SteamGridDbClient client, IEnumerable<GameEntry> games)
+    {
+        foreach (var game in games.Where(x => !x.ArtworkManuallyConfigured))
+        {
+            _status.Text = "Automatikus artwork: " + game.Name;
+            try
+            {
+                var matches = await client.SearchGamesAsync(game.Name, CancellationToken.None);
+                if (matches.Count == 0) continue;
+                int gameId = matches[0].Id;
+                game.ArtworkUrl = (await client.GetArtworkAsync(gameId, ArtworkKind.Cover, CancellationToken.None)).FirstOrDefault()?.Url;
+                game.HeroUrl = (await client.GetArtworkAsync(gameId, ArtworkKind.Hero, CancellationToken.None)).FirstOrDefault()?.Url;
+                game.LogoUrl = (await client.GetArtworkAsync(gameId, ArtworkKind.Logo, CancellationToken.None)).FirstOrDefault()?.Url;
+            }
+            catch { }
+        }
     }
 
     private static string Quote(string s) => "\"" + s.Trim().Trim('"') + "\"";
