@@ -10,6 +10,7 @@ internal sealed class GameEntry
     public string? ArtworkUrl { get; set; }
     public string? HeroUrl { get; set; }
     public string? LogoUrl { get; set; }
+    public bool ArtworkManuallyConfigured { get; set; }
     public string ArtworkStatus => $"Borító:{Mark(ArtworkUrl)} Háttér:{Mark(HeroUrl)} Logó:{Mark(LogoUrl)}";
     private static string Mark(string? value) => string.IsNullOrWhiteSpace(value) ? "–" : "✓";
 }
