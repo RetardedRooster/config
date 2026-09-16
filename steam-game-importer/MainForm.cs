@@ -92,7 +92,14 @@ internal sealed class MainForm : Form
         if (_steamPath is null || _steamUser.SelectedItem is not string user) { MessageBox.Show(this, "Nem található Steam-felhasználó.", "Hiba"); return; }
         var selected = (_grid.DataSource as List<GameEntry>)?.Where(x => x.Selected).ToList() ?? [];
         if (selected.Count == 0) { MessageBox.Show(this, "Nincs kijelölt játék."); return; }
-        if (Process.GetProcessesByName("steam").Length > 0 && MessageBox.Show(this, "A Steam fut. A biztos mentéshez zárd be teljesen. Bezártad?", "Steam fut", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+        if (Process.GetProcessesByName("steam").Length > 0)
+        {
+            MessageBox.Show(this,
+                "A Steam még fut, ezért most nem módosítottam semmit.\n\n" +
+                "A tálca jobb alsó sarkában kattints jobb gombbal a Steam ikonra, válaszd a Kilépés lehetőséget, majd próbáld újra.",
+                "Előbb zárd be a Steamet", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
         string config = Path.Combine(_steamPath, "userdata", user, "config"); string vdf = Path.Combine(config, "shortcuts.vdf");
         try
         {
@@ -106,9 +113,15 @@ internal sealed class MainForm : Form
                 shortcuts.Add(new SteamShortcut { AppName = game.Name.Trim(), Exe = exe, StartDir = start, LaunchOptions = game.LaunchOptions.Trim() }); added++;
             }
             ShortcutVdf.Write(vdf, shortcuts);
+            var verified = ShortcutVdf.Read(vdf);
+            int verifiedCount = selected.Count(game => verified.Any(x => Normalize(x.Exe) == Normalize(Quote(game.Executable))));
+            if (verifiedCount < added)
+                throw new InvalidDataException($"Az ellenőrzés sikertelen: {added} új bejegyzésből csak {verifiedCount} olvasható vissza.");
             if (!string.IsNullOrWhiteSpace(_apiKey.Text)) await DownloadArtwork(selected, user);
-            _status.Text = $"Kész: {added} hozzáadva, {skipped} duplikáció kihagyva.";
-            MessageBox.Show(this, $"{added} játék hozzáadva. {skipped} duplikáció kihagyva.\nIndítsd újra a Steamet.", "Sikeres importálás");
+            string log = Path.Combine(config, "SteamGameImporter_last_import.txt");
+            File.WriteAllText(log, $"Idő: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\r\nFájl: {vdf}\r\nSteam-felhasználó: {user}\r\nHozzáadva: {added}\r\nDuplikáció: {skipped}\r\nVisszaellenőrizve: {verifiedCount}\r\n");
+            _status.Text = $"Kész: {added} hozzáadva, {skipped} duplikáció kihagyva, fájl ellenőrizve.";
+            MessageBox.Show(this, $"{added} játék hozzáadva. {skipped} duplikáció kihagyva.\n\nA shortcuts.vdf visszaellenőrzése sikeres. Most indítsd el a Steamet.", "Sikeres importálás");
         }
         catch (Exception ex) { MessageBox.Show(this, "A Steam könyvtár nem módosítható:\n" + ex.Message, "Hiba", MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }
