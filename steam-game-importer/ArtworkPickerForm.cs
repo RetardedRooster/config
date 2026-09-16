@@ -10,12 +10,14 @@ internal sealed class ArtworkPickerForm : Form
     private readonly FlowLayoutPanel _images = new() { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(8) };
     private readonly Label _status = new() { AutoSize = true, Text = "Keresés…", Margin = new Padding(8) };
     private CancellationTokenSource? _cts;
+    private readonly ArtworkKind _kind;
     public string? SelectedArtworkUrl { get; private set; }
 
-    public ArtworkPickerForm(SteamGridDbClient client, string initialQuery, string? currentUrl)
+    public ArtworkPickerForm(SteamGridDbClient client, string initialQuery, string? currentUrl, ArtworkKind kind)
     {
-        _client = client; _query.Text = initialQuery; SelectedArtworkUrl = currentUrl;
-        Text = "SteamGridDB artwork kiválasztása"; Width = 900; Height = 720; MinimumSize = new Size(650, 500); StartPosition = FormStartPosition.CenterParent;
+        _client = client; _query.Text = initialQuery; SelectedArtworkUrl = currentUrl; _kind = kind;
+        string kindName = kind switch { ArtworkKind.Cover => "borító", ArtworkKind.Hero => "háttér", ArtworkKind.Logo => "logó", _ => "artwork" };
+        Text = $"SteamGridDB {kindName} kiválasztása"; Width = 900; Height = 720; MinimumSize = new Size(650, 500); StartPosition = FormStartPosition.CenterParent;
         var search = new Button { Text = "Keresés", AutoSize = true };
         search.Click += async (_, _) => await SearchGames();
         _query.KeyDown += async (_, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; await SearchGames(); } };
@@ -48,9 +50,9 @@ internal sealed class ArtworkPickerForm : Form
         CancelPrevious(); _status.Text = $"Borítók betöltése: {game.Name}…"; _images.Controls.Clear();
         try
         {
-            var artworks = await _client.GetPortraitsAsync(game.Id, _cts!.Token);
+            var artworks = await _client.GetArtworkAsync(game.Id, _kind, _cts!.Token);
             foreach (var art in artworks) AddArtworkTile(art);
-            _status.Text = artworks.Count == 0 ? "Ehhez a játékhoz nincs 600×900-as statikus borító." : $"{artworks.Count} borító. Kattints a használni kívántra.";
+            _status.Text = artworks.Count == 0 ? "Ehhez a játékhoz nincs megfelelő statikus artwork." : $"{artworks.Count} kép. Kattints a használni kívántra.";
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { _status.Text = ex.Message; }
@@ -58,7 +60,8 @@ internal sealed class ArtworkPickerForm : Form
 
     private void AddArtworkTile(SteamGridArtwork art)
     {
-        var picture = new PictureBox { Width = 150, Height = 225, SizeMode = PictureBoxSizeMode.Zoom, BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand, Tag = art.Url };
+        Size tile = _kind == ArtworkKind.Cover ? new Size(150, 225) : _kind == ArtworkKind.Hero ? new Size(300, 120) : new Size(240, 140);
+        var picture = new PictureBox { Width = tile.Width, Height = tile.Height, SizeMode = PictureBoxSizeMode.Zoom, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.DimGray, Cursor = Cursors.Hand, Tag = art.Url };
         picture.Click += (_, _) => { SelectedArtworkUrl = art.Url; DialogResult = DialogResult.OK; Close(); };
         _images.Controls.Add(picture);
         _ = LoadPreview(picture, string.IsNullOrWhiteSpace(art.ThumbUrl) ? art.Url : art.ThumbUrl, _cts!.Token);
