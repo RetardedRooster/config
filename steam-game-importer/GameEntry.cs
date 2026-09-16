@@ -8,5 +8,8 @@ internal sealed class GameEntry
     public string StartDirectory { get; set; } = "";
     public string LaunchOptions { get; set; } = "";
     public string? ArtworkUrl { get; set; }
-    public string ArtworkStatus => string.IsNullOrWhiteSpace(ArtworkUrl) ? "Nincs kiválasztva" : "Kiválasztva";
+    public string? HeroUrl { get; set; }
+    public string? LogoUrl { get; set; }
+    public string ArtworkStatus => $"Borító:{Mark(ArtworkUrl)} Háttér:{Mark(HeroUrl)} Logó:{Mark(LogoUrl)}";
+    private static string Mark(string? value) => string.IsNullOrWhiteSpace(value) ? "–" : "✓";
 }
