@@ -117,24 +117,42 @@ internal sealed class MainForm : Form
             int verifiedCount = selected.Count(game => verified.Any(x => Normalize(x.Exe) == Normalize(Quote(game.Executable))));
             if (verifiedCount < added)
                 throw new InvalidDataException($"Az ellenőrzés sikertelen: {added} új bejegyzésből csak {verifiedCount} olvasható vissza.");
-            if (!string.IsNullOrWhiteSpace(_apiKey.Text)) await DownloadArtwork(selected, user);
+            int artworkDownloaded = 0;
+            var artworkErrors = new List<string>();
+            if (!string.IsNullOrWhiteSpace(_apiKey.Text))
+                (artworkDownloaded, artworkErrors) = await DownloadArtwork(selected, user);
+            else
+                artworkErrors.Add("Nincs megadva SteamGridDB API-kulcs.");
             string log = Path.Combine(config, "SteamGameImporter_last_import.txt");
-            File.WriteAllText(log, $"Idő: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\r\nFájl: {vdf}\r\nSteam-felhasználó: {user}\r\nHozzáadva: {added}\r\nDuplikáció: {skipped}\r\nVisszaellenőrizve: {verifiedCount}\r\n");
+            File.WriteAllText(log, $"Idő: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\r\nFájl: {vdf}\r\nSteam-felhasználó: {user}\r\nHozzáadva: {added}\r\nDuplikáció: {skipped}\r\nVisszaellenőrizve: {verifiedCount}\r\nArtwork letöltve: {artworkDownloaded}\r\nArtwork hibák:\r\n{string.Join("\r\n", artworkErrors)}\r\n");
             _status.Text = $"Kész: {added} hozzáadva, {skipped} duplikáció kihagyva, fájl ellenőrizve.";
-            MessageBox.Show(this, $"{added} játék hozzáadva. {skipped} duplikáció kihagyva.\n\nSteam-profil: {user}\nFájl: {vdf}\n\nA shortcuts.vdf visszaellenőrzése sikeres. Most indítsd el a Steamet.", "Sikeres importálás");
+            string artMessage = artworkErrors.Count == 0
+                ? $"Artwork: {artworkDownloaded} borító letöltve."
+                : $"Artwork: {artworkDownloaded} letöltve, {artworkErrors.Count} hiba. Részletek a naplóban.";
+            MessageBox.Show(this, $"{added} játék hozzáadva. {skipped} duplikáció kihagyva.\n{artMessage}\n\nSteam-profil: {user}\nFájl: {vdf}\n\nMost indítsd el a Steamet.", "Importálás kész");
         }
         catch (Exception ex) { MessageBox.Show(this, "A Steam könyvtár nem módosítható:\n" + ex.Message, "Hiba", MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }
 
-    private async Task DownloadArtwork(IEnumerable<GameEntry> games, string user)
+    private async Task<(int Downloaded, List<string> Errors)> DownloadArtwork(IEnumerable<GameEntry> games, string user)
     {
         var client = new SteamGridDbClient(_apiKey.Text.Trim()); string grid = Path.Combine(_steamPath!, "userdata", user, "config", "grid");
+        int downloaded = 0;
+        var errors = new List<string>();
         foreach (var game in games)
         {
             _status.Text = "Borítókép: " + game.Name;
-            try { string? url = await client.FindGridUrlAsync(game.Name, CancellationToken.None); if (url is not null) await client.DownloadGridAsync(url, Path.Combine(grid, ShortcutVdf.ComputeGridId(Quote(game.Executable), game.Name) + "p.jpg"), CancellationToken.None); }
-            catch { /* Az artwork opcionális; egy hálózati hiba nem vonja vissza az importot. */ }
+            try
+            {
+                string? url = await client.FindGridUrlAsync(game.Name, CancellationToken.None);
+                if (url is null) { errors.Add($"{game.Name}: nincs 600x900-as statikus borító."); continue; }
+                uint appId = ShortcutVdf.ComputeAppId(Quote(game.Executable), game.Name);
+                await client.DownloadGridAsync(url, Path.Combine(grid, appId + "p"), CancellationToken.None);
+                downloaded++;
+            }
+            catch (Exception ex) { errors.Add($"{game.Name}: {ex.Message}"); }
         }
+        return (downloaded, errors);
     }
 
     private static string Quote(string s) => "\"" + s.Trim().Trim('"') + "\"";
