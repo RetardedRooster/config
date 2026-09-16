@@ -87,7 +87,8 @@ internal static class ShortcutVdf
                 WriteObject(writer, "tags"); writer.Write(End);
                 writer.Write(End);
             }
-            writer.Write(End);
+            writer.Write(End); // shortcuts objektum vége
+            writer.Write(End); // bináris KeyValues dokumentum vége
         }
         File.Move(temporary, path, overwrite: true);
     }
