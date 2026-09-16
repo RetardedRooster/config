@@ -72,8 +72,9 @@ internal static class ShortcutVdf
             {
                 WriteObject(writer, i.ToString());
                 WriteInt(writer, "appid", ComputeAppId(shortcuts[i].Exe, shortcuts[i].AppName));
-                WriteString(writer, "AppName", shortcuts[i].AppName);
-                WriteString(writer, "Exe", shortcuts[i].Exe);
+                // A Steam kliens ezeket a kulcsokat pontosan kisbetűsen írja és várja.
+                WriteString(writer, "appname", shortcuts[i].AppName);
+                WriteString(writer, "exe", shortcuts[i].Exe);
                 WriteString(writer, "StartDir", shortcuts[i].StartDir);
                 WriteString(writer, "icon", "");
                 WriteString(writer, "ShortcutPath", "");
@@ -82,6 +83,7 @@ internal static class ShortcutVdf
                 WriteInt(writer, "AllowOverlay", 1); WriteInt(writer, "OpenVR", 0);
                 WriteInt(writer, "Devkit", 0); WriteString(writer, "DevkitGameID", "");
                 WriteInt(writer, "DevkitOverrideAppID", 0); WriteInt(writer, "LastPlayTime", 0);
+                WriteString(writer, "FlatpakAppID", "");
                 WriteObject(writer, "tags"); writer.Write(End);
                 writer.Write(End);
             }
