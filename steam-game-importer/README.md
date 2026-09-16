@@ -29,7 +29,7 @@ powershell -ExecutionPolicy Bypass -File .\build-windows.ps1
 1. Válassz keresési mappát és indítsd el a keresést, vagy használd a **Kézi hozzáadás** gombot.
 2. Ellenőrizd és szükség szerint szerkeszd a táblázatot.
 3. Válaszd ki a Steam-felhasználót.
-4. Teljesen lépj ki a Steamből, majd kattints a **Hozzáadás a Steamhez** gombra.
+4. Teljesen lépj ki a Steamből a tálca Steam ikonjának **Kilépés** parancsával, majd kattints a **Hozzáadás a Steamhez** gombra. A program nem engedi az írást, amíg a `steam.exe` fut.
 5. Indítsd újra a Steamet.
 
 SteamGridDB-borítóhoz saját API-kulcs szükséges. Kulcs nélkül minden más funkció működik.
@@ -41,3 +41,5 @@ A program minden módosítás előtt időbélyeges mentést készít ide:
 `Steam\userdata\<felhasználó>\config\SteamGameImporter_Backups`
 
 Az alkalmazás nem tölt le és nem telepít játékokat.
+
+Az utolsó import ellenőrzési naplója: `Steam\userdata\<felhasználó>\config\SteamGameImporter_last_import.txt`.
