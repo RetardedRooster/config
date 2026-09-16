@@ -102,6 +102,11 @@ internal sealed class MainForm : Form
         {
             var client = new SteamGridDbClient(_apiKey.Text.Trim());
             await AutoSelectArtwork(client, selected);
+            foreach (var game in selected)
+            {
+                using var review = new ArtworkReviewForm(client, game);
+                if (review.ShowDialog(this) != DialogResult.OK) { _status.Text = "Importálás megszakítva az artwork ellenőrzésénél."; return; }
+            }
             _grid.Refresh();
         }
         if (Process.GetProcessesByName("steam").Length > 0)
