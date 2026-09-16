@@ -1,0 +1,25 @@
+name: Build Windows EXE
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish self-contained application
+        shell: pwsh
+        run: dotnet publish steam-game-importer/SteamGameImporter.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -o publish
+      - name: Package
+        shell: pwsh
+        run: Compress-Archive -Path publish/SteamGameImporter.exe,steam-game-importer/README.md -DestinationPath SteamGameImporter-Windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SteamGameImporter-Windows-x64
+          path: SteamGameImporter-Windows-x64.zip
+          if-no-files-found: error
