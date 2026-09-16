@@ -3,24 +3,42 @@ using System.Text.Json;
 
 namespace SteamGameImporter;
 
+internal sealed record SteamGridGame(int Id, string Name);
+internal sealed record SteamGridArtwork(string Url, string ThumbUrl);
+
 internal sealed class SteamGridDbClient(string apiKey)
 {
     private readonly HttpClient _http = CreateClient(apiKey);
     private readonly HttpClient _imageHttp = new();
     private static HttpClient CreateClient(string key) { var h = new HttpClient(); h.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key); return h; }
 
+    public async Task<List<SteamGridGame>> SearchGamesAsync(string name, CancellationToken token)
+    {
+        using var response = await _http.GetAsync("https://www.steamgriddb.com/api/v2/search/autocomplete/" + Uri.EscapeDataString(name), token);
+        if (!response.IsSuccessStatusCode) throw new HttpRequestException($"SteamGridDB keresési hiba: {(int)response.StatusCode} {response.ReasonPhrase}");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(token));
+        return document.RootElement.GetProperty("data").EnumerateArray()
+            .Select(x => new SteamGridGame(x.GetProperty("id").GetInt32(), x.GetProperty("name").GetString() ?? "Ismeretlen"))
+            .Take(30).ToList();
+    }
+
+    public async Task<List<SteamGridArtwork>> GetPortraitsAsync(int gameId, CancellationToken token)
+    {
+        using var response = await _http.GetAsync($"https://www.steamgriddb.com/api/v2/grids/game/{gameId}?dimensions=600x900&types=static", token);
+        if (!response.IsSuccessStatusCode) throw new HttpRequestException($"SteamGridDB grid hiba: {(int)response.StatusCode} {response.ReasonPhrase}");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(token));
+        return document.RootElement.GetProperty("data").EnumerateArray()
+            .Select(x => new SteamGridArtwork(x.GetProperty("url").GetString() ?? "", x.TryGetProperty("thumb", out var thumb) ? thumb.GetString() ?? "" : x.GetProperty("url").GetString() ?? ""))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Url)).Take(40).ToList();
+    }
+
+    public async Task<byte[]> DownloadPreviewAsync(string url, CancellationToken token) => await _imageHttp.GetByteArrayAsync(url, token);
+
     public async Task<string?> FindGridUrlAsync(string name, CancellationToken token)
     {
-        using var search = await _http.GetAsync("https://www.steamgriddb.com/api/v2/search/autocomplete/" + Uri.EscapeDataString(name), token);
-        if (!search.IsSuccessStatusCode) throw new HttpRequestException($"SteamGridDB keresési hiba: {(int)search.StatusCode} {search.ReasonPhrase}");
-        using var sd = JsonDocument.Parse(await search.Content.ReadAsStreamAsync(token));
-        var data = sd.RootElement.GetProperty("data"); if (data.GetArrayLength() == 0) return null;
-        int id = data[0].GetProperty("id").GetInt32();
-        using var grids = await _http.GetAsync($"https://www.steamgriddb.com/api/v2/grids/game/{id}?dimensions=600x900&types=static", token);
-        if (!grids.IsSuccessStatusCode) throw new HttpRequestException($"SteamGridDB grid hiba: {(int)grids.StatusCode} {grids.ReasonPhrase}");
-        using var gd = JsonDocument.Parse(await grids.Content.ReadAsStreamAsync(token));
-        var images = gd.RootElement.GetProperty("data");
-        return images.GetArrayLength() > 0 ? images[0].GetProperty("url").GetString() : null;
+        var games = await SearchGamesAsync(name, token); if (games.Count == 0) return null;
+        var images = await GetPortraitsAsync(games[0].Id, token);
+        return images.FirstOrDefault()?.Url;
     }
 
     public async Task<string> DownloadGridAsync(string url, string destinationWithoutExtension, CancellationToken token)
