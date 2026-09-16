@@ -17,6 +17,8 @@ internal static class SteamLocator
     public static IReadOnlyList<string> FindUserIds(string steamPath) =>
         Directory.Exists(Path.Combine(steamPath, "userdata"))
             ? Directory.GetDirectories(Path.Combine(steamPath, "userdata"))
-                .Select(Path.GetFileName).Where(x => ulong.TryParse(x, out _)).Cast<string>().OrderBy(x => x).ToList()
+                .Where(x => ulong.TryParse(Path.GetFileName(x), out _))
+                .OrderByDescending(x => Directory.GetLastWriteTimeUtc(Path.Combine(x, "config")))
+                .Select(Path.GetFileName).Cast<string>().ToList()
             : [];
 }
