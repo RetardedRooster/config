@@ -8,6 +8,7 @@ internal sealed class SteamShortcut
     public string Exe { get; set; } = "";
     public string StartDir { get; set; } = "";
     public string LaunchOptions { get; set; } = "";
+    public List<string> Tags { get; set; } = [];
 }
 
 internal static class ShortcutVdf
@@ -56,6 +57,7 @@ internal static class ShortcutVdf
                     case "launchoptions": item.LaunchOptions = value; break;
                 }
             }
+            else if (type == Object && key.Equals("tags", StringComparison.OrdinalIgnoreCase)) item.Tags = ReadTags(reader);
             else SkipValue(reader, type, keyAlreadyRead: true);
         }
         return item;
@@ -84,7 +86,10 @@ internal static class ShortcutVdf
                 WriteInt(writer, "Devkit", 0); WriteString(writer, "DevkitGameID", "");
                 WriteInt(writer, "DevkitOverrideAppID", 0); WriteInt(writer, "LastPlayTime", 0);
                 WriteString(writer, "FlatpakAppID", "");
-                WriteObject(writer, "tags"); writer.Write(End);
+                WriteObject(writer, "tags");
+                for (int tagIndex = 0; tagIndex < shortcuts[i].Tags.Count; tagIndex++)
+                    WriteString(writer, tagIndex.ToString(), shortcuts[i].Tags[tagIndex]);
+                writer.Write(End);
                 writer.Write(End);
             }
             writer.Write(End); // shortcuts objektum vége
@@ -108,6 +113,18 @@ internal static class ShortcutVdf
     private static void WriteInt(BinaryWriter w, string key, uint value) { w.Write(Int32); WriteCString(w, key); w.Write(value); }
     private static void WriteCString(BinaryWriter w, string value) { w.Write(Encoding.UTF8.GetBytes(value)); w.Write((byte)0); }
     private static string ReadCString(BinaryReader r) { var b = new List<byte>(); byte x; while ((x = r.ReadByte()) != 0) b.Add(x); return Encoding.UTF8.GetString(b.ToArray()); }
+    private static List<string> ReadTags(BinaryReader reader)
+    {
+        var tags = new List<string>();
+        while (true)
+        {
+            byte type = reader.ReadByte();
+            if (type == End) break;
+            _ = ReadCString(reader);
+            if (type == String) tags.Add(ReadCString(reader)); else SkipValue(reader, type, keyAlreadyRead: true);
+        }
+        return tags;
+    }
     private static void SkipValue(BinaryReader r, byte type, bool keyAlreadyRead = false)
     {
         if (!keyAlreadyRead) _ = ReadCString(r);
