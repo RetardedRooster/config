@@ -121,7 +121,7 @@ internal sealed class MainForm : Form
             string log = Path.Combine(config, "SteamGameImporter_last_import.txt");
             File.WriteAllText(log, $"Idő: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\r\nFájl: {vdf}\r\nSteam-felhasználó: {user}\r\nHozzáadva: {added}\r\nDuplikáció: {skipped}\r\nVisszaellenőrizve: {verifiedCount}\r\n");
             _status.Text = $"Kész: {added} hozzáadva, {skipped} duplikáció kihagyva, fájl ellenőrizve.";
-            MessageBox.Show(this, $"{added} játék hozzáadva. {skipped} duplikáció kihagyva.\n\nA shortcuts.vdf visszaellenőrzése sikeres. Most indítsd el a Steamet.", "Sikeres importálás");
+            MessageBox.Show(this, $"{added} játék hozzáadva. {skipped} duplikáció kihagyva.\n\nSteam-profil: {user}\nFájl: {vdf}\n\nA shortcuts.vdf visszaellenőrzése sikeres. Most indítsd el a Steamet.", "Sikeres importálás");
         }
         catch (Exception ex) { MessageBox.Show(this, "A Steam könyvtár nem módosítható:\n" + ex.Message, "Hiba", MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }
