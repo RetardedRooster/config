@@ -28,14 +28,14 @@ internal sealed class MainForm : Form
         _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(GameEntry.Executable), HeaderText = "Indítófájl", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(GameEntry.StartDirectory), HeaderText = "Kezdőmappa", Width = 260 });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(GameEntry.LaunchOptions), HeaderText = "Indítási opciók", Width = 150 });
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(GameEntry.ArtworkStatus), HeaderText = "Artwork", Width = 120, ReadOnly = true });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(GameEntry.ArtworkStatus), HeaderText = "Artwork", Width = 210, ReadOnly = true });
     }
 
     private void BuildLayout()
     {
         var choose = Button("Tallózás…", (_, _) => ChooseScanFolder()); var scan = Button("Keresés", async (_, _) => await Scan());
         var addManual = Button("Kézi hozzáadás", (_, _) => AddManual()); var remove = Button("Kijelölt sor törlése", (_, _) => RemoveRows());
-        var artwork = Button("Artwork kiválasztása", async (_, _) => await ChooseArtworkForCurrentRow());
+        var artwork = Button("Artworkok kiválasztása", async (_, _) => await ChooseArtworkForCurrentRow());
         var import = Button("Hozzáadás a Steamhez", async (_, _) => await Import());
         var stop = Button("Leállítás", (_, _) => _cts?.Cancel());
         var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 78, Padding = new Padding(7), WrapContents = true };
@@ -103,9 +103,7 @@ internal sealed class MainForm : Form
             var client = new SteamGridDbClient(_apiKey.Text.Trim());
             foreach (var game in selected)
             {
-                using var picker = new ArtworkPickerForm(client, game.Name, game.ArtworkUrl);
-                if (picker.ShowDialog(this) != DialogResult.OK) { _status.Text = "Importálás megszakítva az artwork-választásnál."; return; }
-                game.ArtworkUrl = picker.SelectedArtworkUrl;
+                if (!ChooseArtworkSet(client, game)) { _status.Text = "Importálás megszakítva az artwork-választásnál."; return; }
             }
             _grid.Refresh();
         }
@@ -161,11 +159,18 @@ internal sealed class MainForm : Form
             _status.Text = "Borítókép: " + game.Name;
             try
             {
-                string? url = game.ArtworkUrl;
-                if (url is null) { errors.Add($"{game.Name}: az artwork ki lett hagyva."); continue; }
                 uint appId = ShortcutVdf.ComputeAppId(Quote(game.Executable), game.Name);
-                await client.DownloadGridAsync(url, Path.Combine(grid, appId + "p"), CancellationToken.None);
-                downloaded++;
+                var assets = new[]
+                {
+                    (game.ArtworkUrl, Path.Combine(grid, appId + "p"), "borító"),
+                    (game.HeroUrl, Path.Combine(grid, appId + "_hero"), "háttér"),
+                    (game.LogoUrl, Path.Combine(grid, appId + "_logo"), "logó")
+                };
+                foreach (var asset in assets)
+                {
+                    if (asset.Item1 is null) { errors.Add($"{game.Name}: {asset.Item3} kihagyva."); continue; }
+                    await client.DownloadGridAsync(asset.Item1, asset.Item2, CancellationToken.None); downloaded++;
+                }
             }
             catch (Exception ex) { errors.Add($"{game.Name}: {ex.Message}"); }
         }
@@ -178,9 +183,28 @@ internal sealed class MainForm : Form
         if (_grid.CurrentRow?.DataBoundItem is not GameEntry game) { MessageBox.Show(this, "Előbb jelölj ki egy játék-sort."); return; }
         if (string.IsNullOrWhiteSpace(_apiKey.Text)) { MessageBox.Show(this, "Előbb add meg a SteamGridDB API-kulcsot.", "API-kulcs szükséges"); return; }
         CredentialStore.SaveApiKey(_apiKey.Text);
-        using var picker = new ArtworkPickerForm(new SteamGridDbClient(_apiKey.Text.Trim()), game.Name, game.ArtworkUrl);
-        if (picker.ShowDialog(this) == DialogResult.OK) { game.ArtworkUrl = picker.SelectedArtworkUrl; _grid.Refresh(); }
+        var client = new SteamGridDbClient(_apiKey.Text.Trim());
+        if (ChooseArtworkSet(client, game)) _grid.Refresh();
         await Task.CompletedTask;
+    }
+
+    private bool ChooseArtworkSet(SteamGridDbClient client, GameEntry game)
+    {
+        var choices = new[]
+        {
+            (ArtworkKind.Cover, game.ArtworkUrl),
+            (ArtworkKind.Hero, game.HeroUrl),
+            (ArtworkKind.Logo, game.LogoUrl)
+        };
+        var selected = new string?[3];
+        for (int i = 0; i < choices.Length; i++)
+        {
+            using var picker = new ArtworkPickerForm(client, game.Name, choices[i].Item2, choices[i].Item1);
+            if (picker.ShowDialog(this) != DialogResult.OK) return false;
+            selected[i] = picker.SelectedArtworkUrl;
+        }
+        game.ArtworkUrl = selected[0]; game.HeroUrl = selected[1]; game.LogoUrl = selected[2];
+        return true;
     }
 
     private static string Quote(string s) => "\"" + s.Trim().Trim('"') + "\"";
