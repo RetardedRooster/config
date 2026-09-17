@@ -40,18 +40,27 @@ internal sealed class MainForm : Form
         var artwork = Button("Artworkok kiválasztása", async (_, _) => await ChooseArtworkForCurrentRow());
         var import = Button("Hozzáadás a Steamhez", async (_, _) => await Import());
         var stop = Button("Leállítás", (_, _) => _cts?.Cancel());
-        var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 78, Padding = new Padding(7), WrapContents = true };
-        top.Controls.AddRange([_scanPath, choose, scan, stop, addManual, remove, artwork]);
+        var scanRow = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = false, Margin = Padding.Empty };
+        scanRow.Controls.AddRange([_scanPath, choose, scan, stop]);
+        var actionRow = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = false, Margin = Padding.Empty };
+        actionRow.Controls.AddRange([addManual, remove, artwork]);
+        var top = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(7), ColumnCount = 1, RowCount = 2, BackColor = SteamTheme.Panel };
+        top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        top.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        top.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        top.Controls.Add(scanRow, 0, 0); top.Controls.Add(actionRow, 0, 1);
         var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 52, Padding = new Padding(7), WrapContents = false };
         bottom.Controls.AddRange([new Label { Text = "Steam felhasználó:", AutoSize = true, Margin = new Padding(3, 9, 3, 3) }, _steamUser, _apiKey, import]);
         var status = new StatusStrip(); status.Items.Add(_status);
-        var header = new Panel { Dock = DockStyle.Top, Height = 72, BackColor = SteamTheme.Panel, Padding = new Padding(16, 4, 8, 11) };
-        header.Controls.Add(new Label { Text = "STEAM GAME IMPORTER", Dock = DockStyle.Top, Height = 31, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 18F), AutoSize = false });
-        header.Controls.Add(new Label { Text = "Nem Steames játékok, artworkök és kategóriák kezelése", Dock = DockStyle.Bottom, Height = 24, ForeColor = SteamTheme.Muted, Font = new Font("Segoe UI", 9.5F), AutoSize = false });
+        var headerText = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, Margin = Padding.Empty, Padding = Padding.Empty, BackColor = SteamTheme.Panel };
+        headerText.Controls.Add(new Label { Text = "STEAM GAME IMPORTER", AutoSize = true, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 18F), Margin = Padding.Empty });
+        headerText.Controls.Add(new Label { Text = "Nem Steames játékok, artworkök és kategóriák kezelése", AutoSize = true, ForeColor = SteamTheme.Muted, Font = new Font("Segoe UI", 9.5F), Margin = Padding.Empty });
+        var header = new Panel { Dock = DockStyle.Top, Height = 72, BackColor = SteamTheme.Panel, Padding = new Padding(16, 2, 8, 4) };
+        header.Controls.Add(headerText);
         Controls.Add(_grid); Controls.Add(bottom); Controls.Add(top); Controls.Add(header); Controls.Add(status);
     }
 
-    private static Button Button(string text, EventHandler action) { var b = new Button { Text = text, AutoSize = true, Height = 31 }; b.Click += action; return b; }
+    private static Button Button(string text, EventHandler action) { var b = new Button { Text = text, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(0, 36), UseCompatibleTextRendering = false }; b.Click += action; return b; }
 
     private void InitializeSteam()
     {
