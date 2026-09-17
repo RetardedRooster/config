@@ -1,0 +1,51 @@
+name: Build Windows EXE
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish self-contained application
+        shell: pwsh
+        run: dotnet publish steam-game-importer/SteamGameImporter.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -o publish
+      - name: Publish English self-contained application
+        shell: pwsh
+        run: dotnet publish steam-game-importer-en/SteamGameImporter.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -o publish-en
+      - name: Package
+        shell: pwsh
+        run: Compress-Archive -Path publish/SteamGameImporter.exe,steam-game-importer/README.md,steam-game-importer/HASZNALATI_UTMUTATO.md -DestinationPath SteamGameImporter-Windows-x64.zip
+      - name: Package English edition
+        shell: pwsh
+        run: Compress-Archive -Path publish-en/SteamGameImporter.exe,steam-game-importer-en/README.md,steam-game-importer-en/USER_GUIDE_EN.md -DestinationPath SteamGameImporter-Windows-x64-English.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SteamGameImporter-Windows-x64
+          path: SteamGameImporter-Windows-x64.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SteamGameImporter-Windows-x64-English
+          path: SteamGameImporter-Windows-x64-English.zip
+          if-no-files-found: error
+      - name: Publish stable public download
+        if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if (gh release view windows-latest 2>$null) {
+            gh release upload windows-latest SteamGameImporter-Windows-x64.zip --clobber
+            gh release upload windows-latest SteamGameImporter-Windows-x64-English.zip --clobber
+          } else {
+            gh release create windows-latest SteamGameImporter-Windows-x64.zip SteamGameImporter-Windows-x64-English.zip --target steam-game-importer-build --title "Steam Game Importer – Windows x64" --notes "Latest Windows x64 builds. Separate Hungarian and English ZIP packages, each including its own user guide."
+          }
