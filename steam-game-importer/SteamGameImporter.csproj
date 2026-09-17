@@ -8,6 +8,7 @@
     <AssemblyName>SteamGameImporter</AssemblyName>
     <RootNamespace>SteamGameImporter</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
