@@ -4,6 +4,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -17,9 +20,20 @@ jobs:
         run: dotnet publish steam-game-importer/SteamGameImporter.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -o publish
       - name: Package
         shell: pwsh
-        run: Compress-Archive -Path publish/SteamGameImporter.exe,steam-game-importer/README.md -DestinationPath SteamGameImporter-Windows-x64.zip
+        run: Compress-Archive -Path publish/SteamGameImporter.exe,steam-game-importer/README.md,steam-game-importer/HASZNALATI_UTMUTATO.md -DestinationPath SteamGameImporter-Windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
           name: SteamGameImporter-Windows-x64
           path: SteamGameImporter-Windows-x64.zip
           if-no-files-found: error
+      - name: Publish stable public download
+        if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if (gh release view windows-latest 2>$null) {
+            gh release upload windows-latest SteamGameImporter-Windows-x64.zip --clobber
+          } else {
+            gh release create windows-latest SteamGameImporter-Windows-x64.zip --target steam-game-importer-build --title "Steam Game Importer – Windows x64" --notes "Mindig a legfrissebb Windows x64 build. A ZIP tartalmazza az alkalmazást és a magyar használati útmutatót."
+          }
