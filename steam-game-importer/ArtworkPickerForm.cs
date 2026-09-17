@@ -25,9 +25,46 @@ internal sealed class ArtworkPickerForm : Form
         var skip = new Button { Text = "Artwork kihagyása", AutoSize = true };
         skip.Click += (_, _) => { SelectedArtworkUrl = null; DialogResult = DialogResult.OK; Close(); };
         var cancel = new Button { Text = "Mégse", AutoSize = true, DialogResult = DialogResult.Cancel };
-        var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 42, Padding = new Padding(6), WrapContents = false };
-        top.Controls.AddRange([_query, search, _games, skip, cancel]);
-        Controls.Add(_images); Controls.Add(_status); Controls.Add(top);
+        var searchRow = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Dock = DockStyle.Fill,
+            Padding = new Padding(6, 6, 6, 2),
+            WrapContents = true
+        };
+        searchRow.Controls.AddRange([_query, search]);
+
+        var selectionRow = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Dock = DockStyle.Fill,
+            Padding = new Padding(6, 2, 6, 4),
+            WrapContents = true
+        };
+        selectionRow.Controls.AddRange([_games, skip, cancel]);
+
+        _status.Dock = DockStyle.Fill;
+        _status.Margin = new Padding(10, 3, 10, 7);
+
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 4,
+            Padding = Padding.Empty
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.Controls.Add(searchRow, 0, 0);
+        layout.Controls.Add(selectionRow, 0, 1);
+        layout.Controls.Add(_status, 0, 2);
+        layout.Controls.Add(_images, 0, 3);
+        Controls.Add(layout);
         SteamTheme.Apply(this); _images.BackColor = SteamTheme.Background; _status.ForeColor = SteamTheme.Muted;
         Shown += async (_, _) => await SearchGames();
     }
