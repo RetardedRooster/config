@@ -28,6 +28,7 @@ internal sealed class ArtworkPickerForm : Form
         var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 42, Padding = new Padding(6), WrapContents = false };
         top.Controls.AddRange([_query, search, _games, skip, cancel]);
         Controls.Add(_images); Controls.Add(_status); Controls.Add(top);
+        SteamTheme.Apply(this); _images.BackColor = SteamTheme.Background; _status.ForeColor = SteamTheme.Muted;
         Shown += async (_, _) => await SearchGames();
     }
 
@@ -61,7 +62,7 @@ internal sealed class ArtworkPickerForm : Form
     private void AddArtworkTile(SteamGridArtwork art)
     {
         Size tile = _kind == ArtworkKind.Cover ? new Size(150, 225) : _kind == ArtworkKind.Hero ? new Size(300, 120) : new Size(240, 140);
-        var picture = new PictureBox { Width = tile.Width, Height = tile.Height, SizeMode = PictureBoxSizeMode.Zoom, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.DimGray, Cursor = Cursors.Hand, Tag = art.Url };
+        var picture = new PictureBox { Width = tile.Width, Height = tile.Height, Margin = new Padding(8), SizeMode = PictureBoxSizeMode.Zoom, BorderStyle = BorderStyle.FixedSingle, BackColor = SteamTheme.Card, Cursor = Cursors.Hand, Tag = art.Url };
         picture.Click += (_, _) => { SelectedArtworkUrl = art.Url; DialogResult = DialogResult.OK; Close(); };
         _images.Controls.Add(picture);
         _ = LoadPreview(picture, string.IsNullOrWhiteSpace(art.ThumbUrl) ? art.Url : art.ThumbUrl, _cts!.Token);
