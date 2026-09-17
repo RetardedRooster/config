@@ -23,6 +23,7 @@ internal sealed class ArtworkReviewForm : Form
         var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 52, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
         bottom.Controls.AddRange([approve, cancel]);
         Controls.Add(cards); Controls.Add(bottom); AcceptButton = approve; CancelButton = cancel;
+        SteamTheme.Apply(this); cards.BackColor = SteamTheme.Background;
         Shown += async (_, _) => await RefreshAll();
     }
 
@@ -55,7 +56,7 @@ internal sealed class ArtworkReviewForm : Form
     {
         PictureBox picture = kind switch { ArtworkKind.Cover => _cover, ArtworkKind.Hero => _hero, _ => _logo };
         picture.Image?.Dispose(); picture.Image = null;
-        string? url = GetUrl(kind); if (string.IsNullOrWhiteSpace(url)) { picture.BackColor = Color.FromArgb(55, 55, 55); return; }
+        string? url = GetUrl(kind); if (string.IsNullOrWhiteSpace(url)) { picture.BackColor = SteamTheme.Card; return; }
         try
         {
             byte[] bytes = await _client.DownloadPreviewAsync(url, _cts.Token);
@@ -66,6 +67,6 @@ internal sealed class ArtworkReviewForm : Form
 
     private string? GetUrl(ArtworkKind kind) => kind switch { ArtworkKind.Cover => _game.ArtworkUrl, ArtworkKind.Hero => _game.HeroUrl, _ => _game.LogoUrl };
     private void SetUrl(ArtworkKind kind, string? value) { if (kind == ArtworkKind.Cover) _game.ArtworkUrl = value; else if (kind == ArtworkKind.Hero) _game.HeroUrl = value; else _game.LogoUrl = value; }
-    private static PictureBox CreatePicture(int width, int height) => new() { Width = width, Height = height, Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.FromArgb(55, 55, 55), BorderStyle = BorderStyle.FixedSingle };
+    private static PictureBox CreatePicture(int width, int height) => new() { Width = width, Height = height, Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, BackColor = SteamTheme.Card, BorderStyle = BorderStyle.FixedSingle };
     protected override void Dispose(bool disposing) { if (disposing) { _cts.Cancel(); _cts.Dispose(); _cover.Image?.Dispose(); _hero.Image?.Dispose(); _logo.Image?.Dispose(); } base.Dispose(disposing); }
 }
