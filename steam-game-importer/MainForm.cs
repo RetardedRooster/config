@@ -15,6 +15,8 @@ internal sealed class MainForm : Form
     public MainForm()
     {
         Text = "Steam Game Importer"; Width = 1180; Height = 760; MinimumSize = new Size(900, 560); StartPosition = FormStartPosition.CenterScreen;
+        var applicationIcon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+        if (applicationIcon is not null) Icon = applicationIcon;
         BuildGrid(); BuildLayout(); SteamTheme.Apply(this);
         Load += (_, _) => { _apiKey.Text = CredentialStore.LoadApiKey(); InitializeSteam(); };
         FormClosing += (_, _) => CredentialStore.SaveApiKey(_apiKey.Text);
@@ -43,7 +45,7 @@ internal sealed class MainForm : Form
         var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 52, Padding = new Padding(7), WrapContents = false };
         bottom.Controls.AddRange([new Label { Text = "Steam felhasználó:", AutoSize = true, Margin = new Padding(3, 9, 3, 3) }, _steamUser, _apiKey, import]);
         var status = new StatusStrip(); status.Items.Add(_status);
-        var header = new Panel { Dock = DockStyle.Top, Height = 72, BackColor = SteamTheme.Panel, Padding = new Padding(16, 8, 8, 6) };
+        var header = new Panel { Dock = DockStyle.Top, Height = 72, BackColor = SteamTheme.Panel, Padding = new Padding(16, 4, 8, 11) };
         header.Controls.Add(new Label { Text = "STEAM GAME IMPORTER", Dock = DockStyle.Top, Height = 31, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 18F), AutoSize = false });
         header.Controls.Add(new Label { Text = "Nem Steames játékok, artworkök és kategóriák kezelése", Dock = DockStyle.Bottom, Height = 24, ForeColor = SteamTheme.Muted, Font = new Font("Segoe UI", 9.5F), AutoSize = false });
         Controls.Add(_grid); Controls.Add(bottom); Controls.Add(top); Controls.Add(header); Controls.Add(status);
